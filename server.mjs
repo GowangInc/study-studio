@@ -4,7 +4,10 @@ import { readFileSync, mkdirSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
-import { StudyError, shortText, proposal, exportApp, demoDraft } from './study.mjs'
+import { StudyError, shortText, proposal, exportApp, demoDraft, moderationPrompt, reviewCategory } from './study.mjs'
+import { previewProject, zipProject } from './project-files.mjs'
+import { readSource, sourceFileLimit } from './sources.mjs'
+import { demoProject } from './demo-project.mjs'
 
 const engine = process.env.STUDY_ENGINE ?? (process.argv.includes('--live') ? 'live' : 'demo')
 const mode = engine === 'opencode' ? 'live' : engine
@@ -35,6 +38,14 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS apps (
     id TEXT PRIMARY KEY, project TEXT NOT NULL REFERENCES projects(id), data TEXT NOT NULL
   );
+  CREATE TABLE IF NOT EXISTS sources (
+    id TEXT PRIMARY KEY, project TEXT NOT NULL REFERENCES projects(id), filename TEXT NOT NULL, text TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS reviewed_requests (
+    seq INTEGER PRIMARY KEY, time TEXT NOT NULL, actor TEXT NOT NULL, project TEXT NOT NULL,
+    message TEXT NOT NULL, category TEXT NOT NULL
+  );
+  UPDATE reviewed_requests SET category = 'needs-review' WHERE category = 'checking';
   CREATE TABLE IF NOT EXISTS activity (
     seq INTEGER PRIMARY KEY, time TEXT NOT NULL, actor TEXT NOT NULL, action TEXT NOT NULL, detail TEXT NOT NULL
   );
@@ -67,6 +78,7 @@ function requireOpen() {
 function studentProjects(owner) {
   return db.prepare('SELECT id, title FROM projects WHERE owner = ? ORDER BY rowid').all(owner).map(project => ({
     ...project,
+    sources: db.prepare('SELECT id, filename FROM sources WHERE project = ? ORDER BY rowid').all(project.id),
     apps: db.prepare('SELECT id, data FROM apps WHERE project = ? ORDER BY rowid').all(project.id)
       .map(row => ({ id: row.id, ...JSON.parse(row.data) })),
   }))
@@ -84,19 +96,28 @@ function ownedApp(id, project) {
   return JSON.parse(row.data)
 }
 
+async function bodyBytes(req, limit) {
+  if (Number(req.headers['content-length']) > limit) throw new StudyError(413, 'Request is too large.')
+  let bytes = 0
+  const chunks = []
+  for await (const chunk of req.iterator({ destroyOnReturn: false })) {
+    bytes += chunk.length
+    if (bytes > limit) {
+      req.resume()
+      throw new StudyError(413, 'Request is too large.')
+    }
+    chunks.push(chunk)
+  }
+  return Buffer.concat(chunks)
+}
+
 async function body(req) {
   if (req.headers['content-type']?.split(';')[0] !== 'application/json') {
     throw new StudyError(415, 'Send JSON.')
   }
-  let bytes = 0
-  const chunks = []
-  for await (const chunk of req) {
-    bytes += chunk.length
-    if (bytes > 8192) throw new StudyError(413, 'Request is too large.')
-    chunks.push(chunk)
-  }
+  const bytes = await bodyBytes(req, 49_152)
   try {
-    const parsed = JSON.parse(Buffer.concat(chunks))
+    const parsed = JSON.parse(bytes)
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error()
     return parsed
   } catch {
@@ -104,11 +125,40 @@ async function body(req) {
   }
 }
 
+function selectedSources(ids, project) {
+  if (ids === undefined) return []
+  if (!Array.isArray(ids) || ids.length > 3 || ids.some(id => typeof id !== 'string') || new Set(ids).size !== ids.length) {
+    throw new StudyError(400, 'Choose up to three sources.')
+  }
+  return ids.map(id => {
+    const file = db.prepare('SELECT filename, text FROM sources WHERE project = ? AND id = ?').get(project, id)
+    if (!file) throw new StudyError(404, 'Source not found.')
+    return file
+  })
+}
+
+function contextHistory(value) {
+  if (value === undefined) return []
+  if (!Array.isArray(value) || value.length > 6) throw new StudyError(400, 'Invalid conversation history.')
+  return value.map(item => {
+    if (!['You', 'Study Studio'].includes(item?.role)) throw new StudyError(400, 'Invalid conversation history.')
+    return { role: item.role, text: shortText(item.text, 1000, 'Earlier message') }
+  })
+}
+
+function demoResponse(message, current) {
+  if (/timeline|narrative order/i.test(message) || current?.kind === 'project') return demoProject()
+  const result = demoDraft(message, current)
+  return result.status === 'declined' ? {
+    status: 'reply', message: 'You are in demo mode. Try asking for an interactive timeline, a quiz, or flashcards to see a sample.',
+  } : result
+}
+
 async function draft(identity, input) {
   requireOpen()
   const owner = identity.id
   const project = ownedProject(input.project, owner)
-  const message = shortText(input.message, 1200, 'Your message')
+  const message = shortText(input.message, 4000, 'Your message')
   const appId = typeof input.app === 'string' && input.app ? input.app : null
   const priorDraft = input.draft ? drafts.get(input.draft) : null
   if (input.draft && (!priorDraft || priorDraft.owner !== owner ||
@@ -117,40 +167,59 @@ async function draft(identity, input) {
   }
   const previous = priorDraft ? priorDraft.previous : appId ? ownedApp(appId, project.id) : null
   const current = priorDraft ? priorDraft.result : previous
+  const sources = selectedSources(input.sources, project.id)
+  const history = contextHistory(input.history)
   if (active.has(owner) || active.size >= 4) throw new StudyError(429, 'The builder is busy. Try again shortly.')
   if ((usage.get(owner) ?? 0) >= maxTurns) throw new StudyError(429, 'You have used your requests for this ASA session.')
-  // Catch common contact details before invoking the model. This is not general-purpose moderation.
-  if (/[\w.+-]+@[\w.-]+\.[a-z]{2,}|\b(?:\d[ ().-]*){8,}\b/i.test(message)) {
-    log(owner, 'Request blocked', 'Possible contact details')
-    throw new StudyError(400, 'Remove contact details from your request and try again.')
-  }
+  const review = db.prepare(
+    'INSERT INTO reviewed_requests (time, actor, project, message, category) VALUES (?, ?, ?, ?, ?)',
+  ).run(new Date().toISOString(), owner, project.title, message, 'checking').lastInsertRowid
+  db.prepare('DELETE FROM reviewed_requests WHERE seq <= ?').run(Number(review) - 500)
+  const updateReview = category => db.prepare('UPDATE reviewed_requests SET category = ? WHERE seq = ?').run(category, review)
   const controller = new AbortController()
   const run = { controller, id: window.id }
   active.set(owner, run)
   usage.set(owner, (usage.get(owner) ?? 0) + 1)
-  const timer = setTimeout(() => controller.abort(), Math.min(window.end - Date.now(), 45_000))
+  const timer = setTimeout(() => controller.abort(), Math.min(window.end - Date.now(), 90_000))
   try {
     const session = hash([run.id, project.id, appId ?? 'new'].join('/')).slice(0, 32)
-    const result = live
-      ? proposal(await live.generate({ message, current, session, signal: controller.signal }))
-      : demoDraft(message, current)
+    let result
+    if (live) {
+      const moderation = live.generate({
+        message, current: null, sources, session: hash(session + '-review-' + review).slice(0, 32), signal: controller.signal,
+        system: moderationPrompt, maxTokens: 160,
+      }).then(reviewCategory).catch(() => 'needs-review').then(updateReview)
+      try {
+        result = proposal(await live.generate({ message, current, sources, history, session, signal: controller.signal }))
+      } finally {
+        await moderation
+      }
+    } else {
+      updateReview('demo')
+      result = demoResponse(message, current)
+    }
     requireOpen()
     if (run.id !== window.id || controller.signal.aborted) throw new StudyError(403, 'This ASA session ended.')
+    if (result.status === 'reply') return { message: result.message }
     if (result.status === 'declined') {
-      log(owner, 'Request declined', 'Outside the study builder’s scope')
-      return { message: 'Try asking for a quiz or flashcards about a topic you are studying.' }
+      log(owner, 'Request declined')
+      return { message: 'I couldn’t help with that request. Tell me more about what you want to make.' }
     }
     const id = randomUUID()
     if (priorDraft) drafts.delete(input.draft)
     drafts.set(id, { owner, windowId: window.id, project: project.id, appId, previous, result })
-    return { id, draft: result, message: 'Try the draft in the preview. Save it when you are happy with it.' }
+    return { id, draft: result, message: result.message ?? 'Try the draft in the preview. Save it when you are happy with it.' }
   } catch (error) {
     if (error instanceof StudyError && error.status === 403) throw error
     if (controller.signal.aborted && run.id !== window.id) throw new StudyError(403, 'This ASA session ended.')
     const status = error.message?.match(/^Model provider HTTP (\d{3})$/)?.[1]
     if (status) console.error('Model provider returned HTTP ' + status)
-    log(owner, 'Draft failed', 'The builder did not return a usable draft')
-    throw new StudyError(502, 'The builder could not finish the draft. Try again with a shorter request.')
+    if (error.message === 'Model provider connection failed') {
+      log(owner, 'Request failed', 'Model provider connection failed')
+      throw new StudyError(502, 'The model provider could not be reached. Ask your teacher to check the connection.')
+    }
+    log(owner, 'Request failed', 'The model did not return a usable reply')
+    throw new StudyError(502, 'Study Studio could not finish your request. Try again in a moment.')
   } finally {
     clearTimeout(timer)
     if (active.get(owner) === run) active.delete(owner)
@@ -207,6 +276,9 @@ const server = createServer(async (req, res) => {
       const state = { role: identity.role, end: window.end, now: Date.now(), demo: mode === 'demo' }
       if (identity.role === 'teacher') {
         state.activity = db.prepare('SELECT time, actor, action, detail FROM activity ORDER BY seq DESC LIMIT 40').all()
+        state.reviews = db.prepare(
+          'SELECT seq, time, actor, project, message, category FROM reviewed_requests ORDER BY seq DESC LIMIT 40',
+        ).all()
         state.students = [...studentCodes].map(([id, accessCode]) => ({ id, accessCode }))
       } else {
         state.projects = studentProjects(identity.id)
@@ -228,12 +300,35 @@ const server = createServer(async (req, res) => {
         const project = ownedProject(url.searchParams.get('project'), identity.id)
         app = ownedApp(url.searchParams.get('app'), project.id)
       }
+      if (path === '/api/download' && app.kind === 'project') {
+        res.setHeader('Content-Type', 'application/zip')
+        res.setHeader('Content-Disposition', 'attachment; filename="study-studio-project.zip"')
+        return res.end(zipProject(app.files))
+      }
+      const html = app.kind === 'project' ? previewProject(app, url.searchParams.get('file')) : exportApp(app)
+      if (html === null) throw new StudyError(404, 'Project file not found.')
       res.setHeader('Content-Type', 'text/html; charset=utf-8')
-      res.setHeader('Content-Security-Policy', "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; frame-ancestors 'self'")
+      res.setHeader('Content-Security-Policy', "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; base-uri 'none'; form-action 'none'; frame-ancestors 'self'")
       if (path === '/api/download') res.setHeader('Content-Disposition', 'attachment; filename="study-app.html"')
-      return res.end(exportApp(app))
+      return res.end(html)
     }
     if (req.method !== 'POST') throw new StudyError(404, 'Page not found.')
+    if (path === '/api/source/upload') {
+      studentAccess(identity)
+      requireOpen()
+      const project = ownedProject(url.searchParams.get('project'), identity.id)
+      if (req.headers['content-type'] !== 'application/octet-stream') throw new StudyError(415, 'Upload a source file.')
+      const session = window.id
+      const file = await readSource(url.searchParams.get('name'), await bodyBytes(req, sourceFileLimit))
+      requireOpen()
+      if (window.id !== session) throw new StudyError(403, 'This ASA session ended.')
+      const count = db.prepare('SELECT COUNT(*) AS count FROM sources WHERE project = ?').get(project.id).count
+      if (count >= 8) throw new StudyError(409, 'Remove a source before adding another.')
+      const id = randomUUID()
+      db.prepare('INSERT INTO sources VALUES (?, ?, ?, ?)').run(id, project.id, file.filename, file.text)
+      log(identity.id, 'Added a source')
+      return reply(res, { id, filename: file.filename })
+    }
     const input = await body(req)
     if (path.startsWith('/api/teacher/')) {
       if (identity.role !== 'teacher') throw new StudyError(403, 'Teacher access is required.')
@@ -261,6 +356,12 @@ const server = createServer(async (req, res) => {
     const owner = identity.id
     if (path === '/api/draft') return reply(res, await draft(identity, input))
     requireOpen()
+    if (path === '/api/source/remove') {
+      const project = ownedProject(input.project, owner)
+      const result = db.prepare('DELETE FROM sources WHERE id = ? AND project = ?').run(String(input.id), project.id)
+      if (!result.changes) throw new StudyError(404, 'Source not found.')
+      return reply(res, {})
+    }
     if (path === '/api/project') {
       const title = shortText(input.title, 80, 'Project name')
       const id = randomUUID()
@@ -282,7 +383,7 @@ const server = createServer(async (req, res) => {
         db.prepare('INSERT INTO apps VALUES (?, ?, ?)').run(id, entry.project, JSON.stringify(entry.result))
       }
       drafts.delete(input.id)
-      log(owner, entry.appId ? 'Revised a study app' : 'Saved a study app', entry.result.kind)
+      log(owner, entry.appId ? 'Saved a revision' : 'Saved a new artifact', entry.result.kind)
       return reply(res, { id })
     }
     throw new StudyError(404, 'Page not found.')

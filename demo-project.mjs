@@ -1,0 +1,56 @@
+const timeline = `<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Night Train | A study timeline</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f4eee1;color:#27213b;font:1rem system-ui,sans-serif}
+header{padding:2rem clamp(1rem,5vw,3rem);background:#29233d;color:#fff5df}
+header p{max-width:32rem;line-height:1.5}h1{font:clamp(2.25rem,7vw,4.5rem) Georgia;margin:.4rem 0}
+main{max-width:53rem;margin:auto;padding:1.3rem clamp(.9rem,4vw,2rem)}
+nav{display:flex;flex-wrap:wrap;gap:.45rem;margin-bottom:1.2rem}button{font:inherit;cursor:pointer;background:#fff7eb;border:1px solid #9f8664;border-radius:.45rem;padding:.6rem .75rem;color:inherit}
+button[aria-pressed=true]{background:#52294d;color:white}button:focus-visible,summary:focus-visible{outline:2px solid #8e432b;outline-offset:3px}
+ol{list-style:none;padding:0 0 0 .8rem;border-left:2px solid #b5694f}
+li{margin:0 0 .75rem}details{border:1px solid #d9cbb3;background:#fff9ed;border-radius:.5rem;padding:.75rem}
+summary{cursor:pointer;font-weight:700}span{color:#80432f;font-variant-numeric:tabular-nums;margin-right:.6rem}
+details p{line-height:1.55}
+</style>
+<header><small>FICTIONAL CASE STUDY</small><h1>The Night Train</h1><p>Explore how changing the order of events changes which character you trust.</p></header>
+<main>
+<nav aria-label="Timeline order"><button id="time" aria-pressed="true">Order of events</button><button id="story" aria-pressed="false">Order in the story</button></nav>
+<ol id="events"></ol>
+</main>
+<script>
+const events=[
+  {time:'18:40',story:2,title:'Mina packs a second ticket',detail:'She says the ticket is for her brother. The narrator leaves its destination unclear.'},
+  {time:'19:05',story:3,title:'The station clock stops',detail:'A witness uses the stopped clock to date a conversation. How reliable is their account?'},
+  {time:'20:10',story:1,title:'The last train leaves',detail:'The reader first sees Mina on the empty platform. The earlier scenes change the meaning of this opening.'},
+];
+function display(order){
+  const list=document.getElementById('events');
+  list.replaceChildren();
+  for(const event of [...events].sort((a,b)=>order==='time'?a.time.localeCompare(b.time):a.story-b.story)){
+    const li=document.createElement('li'),details=document.createElement('details'),summary=document.createElement('summary');
+    const label=document.createElement('span'),body=document.createElement('p');
+    label.textContent=order==='time'?event.time:'Scene '+event.story;
+    summary.append(label,event.title);body.textContent=event.detail;
+    details.append(summary,body);li.append(details);list.append(li);
+  }
+  for(const button of document.querySelectorAll('nav button')) button.setAttribute('aria-pressed',String(button.id===order));
+}
+for(const button of document.querySelectorAll('nav button')) button.addEventListener('click',()=>display(button.id));
+display('time');
+</script>
+</html>`
+
+export function demoProject() {
+  return {
+    status: 'draft', kind: 'project', title: 'The Night Train',
+    message: 'The example uses two reading orders and expandable events. Preview it, or download the project files.',
+    files: [
+      { path: 'index.html', content: timeline },
+      { path: 'notes.md', content: '# The Night Train\n\nA fictional example for exploring narrative order. Open index.html in a browser.\n' },
+      { path: 'data/events.csv', content: 'time,story_order,event\n18:40,2,Mina packs a second ticket\n19:05,3,The station clock stops\n20:10,1,The last train leaves\n' },
+    ],
+  }
+}

@@ -1,12 +1,16 @@
 # Study Studio
 
-Study Studio is a small classroom app for creating revision quizzes and flashcards. A teacher runs the server. Students open its web app, enter an access code, and create projects containing one or more study apps. Saved apps can be downloaded as HTML files and used offline.
+Study Studio is a teacher-run chat and creation workspace. Students enter an access code, create projects, ask questions, and build things in the formats and programming languages they choose. Projects can hold several saved artifacts. Students can view individual files and download the full file set as a ZIP.
 
 ## Student setup
 
 Open the link your teacher gives you and enter your student code. The website works in a normal tab. Use **Install app** if the button appears. On iPad or iPhone, open the link in Safari and choose **Share → Add to Home Screen**. On other devices, look for **Install** or **Add to Home screen** in the browser menu.
 
-The public [installation page](https://gowanginc.github.io/study-studio/) provides a student kit and a sample quiz. Your teacher provides the link for your class.
+The public [installation page](https://gowanginc.github.io/study-studio/) provides a student kit, an interactive timeline, and a sample quiz. Your teacher provides the link for your class.
+
+In a project, open **Sources** to upload a UTF-8 text file or a PDF with selectable text. Select up to three sources for your next requests. The teacher server stores the extracted text and sends selected excerpts to the model with your request. Use materials you have permission to share and leave out personal information. A source can be up to 1 MB and contain up to 12,000 characters of extracted text.
+
+Use the preview to open self-contained HTML or read other files. For projects with multiple files, choose a file from the preview menu. Download the ZIP to use or edit the files on your own device. Use the appropriate tool for files that need a compiler, interpreter, or other runtime.
 
 ## Teacher quick start
 
@@ -16,7 +20,7 @@ Install [Node.js](https://nodejs.org/) 22.13 or later. Open this repository fold
 npm start
 ```
 
-Open the address printed in the terminal, normally `http://127.0.0.1:8765`. Enter the teacher code printed there. Open a session, create a code for `Student 1`, and try the student code in a separate browser profile. Demo requests use sample solar-system content.
+Open the address printed in the terminal, normally `http://127.0.0.1:8765`. Enter the teacher code printed there. Open a session, create a code for `Student 1`, and try the student code in a separate browser profile. Demo mode offers sample timelines, quizzes, and flashcards. It sends no requests to a model. PDF text extraction uses Poppler’s `pdftotext` on the teacher server.
 
 ### Live model
 
@@ -48,21 +52,27 @@ STUDY_API_URL=http://127.0.0.1:11434/v1/chat/completions \
 STUDY_MODEL=your-installed-model npm run start:live
 ```
 
+If the teacher server needs a configured HTTP proxy to reach the model provider, start it with `NODE_USE_ENV_PROXY=1` on a Node release that supports that option. Include `127.0.0.1,localhost` in `NO_PROXY` so local connections stay on the host.
+
 ### Connect student devices
 
 The Node process listens on loopback. For a classroom, put a trusted HTTPS reverse proxy on the same host and use an HTTPS address reachable from student devices. For example, set `STUDY_ORIGIN=https://studio.example.org` and have the proxy preserve that host when forwarding to `http://127.0.0.1:8765`. Students open the HTTPS address. The proxy's certificate must be trusted on their devices. Test this from an actual student network before the first session.
 
 Projects are stored on the server under `~/.local/share/study-studio` by default. Use a separate `STUDY_DATA_DIR` for each group. Codes and sign-ins expire when the server restarts. Reissuing a code for the same student label in the same data directory restores that label’s projects. Keep labels assigned to the same students.
 
-Close the session to stop new AI requests, cancel active turns, and expire unsaved drafts. Saved apps remain available. The teacher view records project and app activity, blocked requests, and generation failures. It does not retain chat transcripts. Explain the monitoring to students and check your institution's provider, moderation, and data-handling requirements before classroom use.
+Close the session to stop new AI requests, cancel active turns, and expire unsaved drafts. Saved artifacts remain available. The teacher view shows recent student requests, their moderation category, and project activity. Use **Show flagged requests only** for triage. A failed classification is marked **Needs review**. Flags support the teacher’s judgment. The server keeps the most recent 500 student requests locally, including the request text. Assistant chat replies stay in the current browser session. Explain the monitoring to students and check your institution’s provider and data-handling requirements before classroom use.
 
 ## How it works
 
-A patched [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) profile receives one turn at a time and has no model-facing shell or file tools. The server relays bounded requests to the teacher’s configured model provider, validates the returned quiz or flashcard data, and renders it using fixed HTML and JavaScript. The builder requires the teacher's server. Downloaded quizzes and flashcards run offline on their own.
+A patched [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) profile receives one turn at a time and has no model-facing shell or file tools. The server relays bounded requests to the teacher’s configured model provider. It validates file paths and packages generated files without running them on the classroom server. A self-contained HTML app runs in a sandboxed preview. The model also classifies the incoming request and selected source text so the teacher can review potential issues. Model replies and moderation may be inaccurate. The generated file set can also be reviewed before it is saved.
 
 ## Screenshots
 
 The screenshots use a demo class and sample study content. Access codes are masked.
+
+### Interactive timeline and sources
+
+![Student workspace with selected source material, several generated project files, and an interactive timeline](screenshots/13-timeline-and-sources.png)
 
 ### Student workspace and quiz draft
 

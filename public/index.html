@@ -27,8 +27,8 @@
   <section id="login" class="login" hidden>
     <div class="login-intro">
       <span class="hero-mark" aria-hidden="true">✦</span>
-      <h1>Your revision,<br>built by you.</h1>
-      <p>Make a quiz or a set of flashcards. Try it out, change it, and take it with you.</p>
+      <h1>Make what helps<br>you learn.</h1>
+      <p>Ask questions, work with your sources, and make something you can use.</p>
     </div>
     <div class="login-access">
       <h2>Open your workspace</h2>
@@ -74,6 +74,12 @@
         <p id="activity-empty" class="muted">Session activity will appear here.</p>
         <ol id="activity" class="activity-list"></ol>
       </section>
+      <section class="teacher-section teacher-review">
+        <h2>Student requests</h2>
+        <label class="review-filter"><input id="review-flagged" type="checkbox"> Show flagged requests only</label>
+        <p id="review-empty" class="muted">Student requests will appear here.</p>
+        <ol id="review-list" class="activity-list"></ol>
+      </section>
     </div>
   </section>
   <section id="student" class="student" hidden>
@@ -107,18 +113,28 @@
           <section id="no-project" class="empty-state">
             <span class="hero-mark" aria-hidden="true">✦</span>
             <h2>Start with a project</h2>
-            <p id="no-project-help">Give your project a name, then build study apps for it.</p>
+            <p id="no-project-help">Give your project a name, then ask a question or start making something.</p>
             <button id="start-project" class="secondary">Create a project</button>
           </section>
           <section id="workbench" class="workbench" aria-label="Chat" hidden>
+            <details id="sources-panel" class="sources-panel">
+              <summary id="sources-heading">Sources</summary>
+              <p>Choose up to three files to use in your next requests. Only selected text is sent to the model.</p>
+              <ul id="sources-list"></ul>
+              <form id="source-form">
+                <label for="source-file">Add a text file or PDF</label>
+                <input id="source-file" name="source" type="file" required>
+                <button type="submit" class="secondary">Add source</button>
+              </form>
+            </details>
             <div class="chat-scroll" id="chat-scroll">
               <div id="chat-empty" class="empty-state">
                 <span class="hero-mark" aria-hidden="true">✦</span>
-                <h2 id="chat-heading">What are you studying?</h2>
-                <p id="chat-help">Describe what you want to practise. Study Studio can make a quiz or flashcards for you to try.</p>
+                <h2 id="chat-heading">What would you like to work on?</h2>
+                <p id="chat-help">Ask a question, use a source, or describe something you want to make.</p>
                 <div class="starter-actions" id="starter-actions">
-                  <button class="secondary starter" data-prompt="Make a quiz about "><span aria-hidden="true">?</span> Make a quiz</button>
-                  <button class="secondary starter" data-prompt="Make flashcards about "><span aria-hidden="true">▤</span> Make flashcards</button>
+                  <button class="secondary starter" data-prompt="Make an interactive timeline about "><span aria-hidden="true">↔</span> Make a timeline</button>
+                  <button class="secondary starter" data-prompt="Help me understand "><span aria-hidden="true">?</span> Explore an idea</button>
                 </div>
               </div>
               <div id="conversation" class="conversation" role="log" aria-live="polite"></div>
@@ -126,13 +142,13 @@
             <form id="draft-form" class="composer" hidden>
               <div class="composer-box">
                 <label class="sr-only" for="message">What would you like to make or change?</label>
-                <textarea id="message" name="message" rows="2" maxlength="1200" required placeholder="Ask Study Studio to make or change an app…" aria-describedby="composer-help"></textarea>
+                <textarea id="message" name="message" rows="2" maxlength="4000" required placeholder="Ask a question or describe what you want to make…" aria-describedby="composer-help"></textarea>
                 <div class="composer-actions">
                   <span id="composer-progress" role="status"></span>
                   <button class="send-button" type="submit" aria-label="Send request" title="Send request (Ctrl or ⌘ + Enter)"><span aria-hidden="true">↑</span></button>
                 </div>
               </div>
-              <small id="composer-help">Leave out names and contact details. Your teacher can see activity and flagged requests.</small>
+              <small id="composer-help">Leave out personal information. Your teacher can review your requests.</small>
             </form>
           </section>
           <section id="preview" class="preview" aria-label="Study app preview" hidden>
@@ -140,6 +156,10 @@
               <div>
                 <span id="preview-title" class="preview-status"></span>
                 <h2 id="preview-app-name"></h2>
+              </div>
+              <div id="preview-file-tools" hidden>
+                <label class="sr-only" for="preview-file">Project file</label>
+                <select id="preview-file"></select>
               </div>
             </header>
             <iframe id="app-frame" title="Study app preview" sandbox="allow-scripts"></iframe>

@@ -43,7 +43,7 @@ function upstreamURL(value) {
 }
 
 function harnessStream(model, text, inputTokens, outputTokens) {
-  if (typeof text !== 'string' || !text.trim() || text.length > 32_000) {
+  if (typeof text !== 'string' || !text.trim() || text.length > 96_000) {
     throw new Error('Model provider returned invalid study content.')
   }
   const tokens = value => Number.isSafeInteger(value) && value >= 0 ? value : 0
@@ -117,9 +117,15 @@ export function createProvider(env = process.env, transport = fetch) {
     } else {
       body = { model, messages: [{ role: 'system', content: system }, ...input], [tokenField]: max_tokens }
     }
-    const response = await transport(endpoint, {
-      method: 'POST', redirect: 'error', signal, headers, body: JSON.stringify(body),
-    })
+    let response
+    try {
+      response = await transport(endpoint, {
+        method: 'POST', redirect: 'error', signal, headers, body: JSON.stringify(body),
+      })
+    } catch (error) {
+      signal.throwIfAborted()
+      throw new Error('Model provider connection failed', { cause: error })
+    }
     if (messages || !response.ok) return response
     return openAIResult(response, protocol, model)
   }

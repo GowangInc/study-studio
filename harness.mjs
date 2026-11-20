@@ -22,14 +22,14 @@ function textOnly(content) {
 }
 
 export function makeGenerator(forward = createProvider()) {
-  return async function generate({ message, current, signal, session = randomUUID() }) {
+  return async function generate({ message, current, sources = [], history = [], signal, system = systemPrompt, maxTokens = 8200, session = randomUUID() }) {
     signal.throwIfAborted()
     const { DeepSeekHarness } = await import(pathToFileURL(resolveSdk.resolve('@deepseek-ai/dsh-sdk-client')).href)
     const directory = await mkdtemp(join(tmpdir(), 'study-harness-'))
     const relayKey = randomBytes(24).toString('hex')
     const abort = new AbortController()
     const relaySignal = AbortSignal.any([signal, abort.signal])
-    const input = JSON.stringify({ request: message, currentApp: current })
+    const input = JSON.stringify({ request: message, currentApp: current, ...(sources.length ? { sources } : {}), ...(history.length ? { history } : {}) })
     let accepted = false
     let relayFailure
     const relay = createServer(async (req, res) => {
@@ -46,7 +46,7 @@ export function makeGenerator(forward = createProvider()) {
         let raw = ''
         for await (const chunk of req) {
           raw += chunk
-          if (raw.length > 65_536) throw new Error('Oversized harness request')
+          if (raw.length > 262_144) throw new Error('Oversized harness request')
         }
         const payload = JSON.parse(raw)
         if ((payload.tools?.length ?? 0) !== 0 || payload.tool_choice ||
@@ -58,8 +58,8 @@ export function makeGenerator(forward = createProvider()) {
           ? payload.messages[0].content : payload.messages[0].content.map(block => block.text).join('')
         if (!text.includes(input)) throw new Error('Unexpected harness context')
         const upstream = await forward({
-          max_tokens: 2200,
-          system: systemPrompt,
+          max_tokens: maxTokens,
+          system,
           messages: [{ role: 'user', content: input }],
         }, 'ses_' + session, relaySignal)
         if (!upstream.ok || !upstream.body) {
@@ -100,11 +100,11 @@ export function makeGenerator(forward = createProvider()) {
           PATH: process.env.PATH,
           DEEPSEEK_API_KEY: relayKey,
           DEEPSEEK_BASE_URL: 'http://127.0.0.1:' + relay.address().port,
-          DSH_SYSTEM_PROMPT: systemPrompt,
+          DSH_SYSTEM_PROMPT: system,
         },
-        maxTokens: 2200,
+        maxTokens,
         initializeTimeoutMs: 15_000,
-        requestTimeoutMs: 40_000,
+        requestTimeoutMs: 80_000,
         disposeEofGraceMs: 750,
       })
       signal.addEventListener('abort', onAbort, { once: true })
