@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Study App</title><style>
+body{font:1.1rem system-ui,sans-serif;margin:8vh auto;padding:0 1rem;max-width:39rem;background:#eff4f2;color:#172825}
+main{background:white;border:1px solid #c9d8d2;border-radius:16px;padding:clamp(1rem,5vw,2.5rem)}
+button{display:block;cursor:pointer;font:inherit;background:#123e35;color:white;border:0;border-radius:8px;padding:.7rem 1rem;margin:.6rem 0}
+small{color:#435953}h1,h2{overflow-wrap:anywhere}
+</style><main><small>Study Studio</small><h1 id="title"></h1><p id="position"></p><h2 id="prompt"></h2><div id="choices"></div><p id="feedback" role="status"></p></main>
+<script>
+const app = {"status":"draft","kind":"quiz","title":"Solar System Revision","items":[{"prompt":"Which planet is known as the Red Planet?","answer":"Mars","options":["Venus","Mars","Mercury"]},{"prompt":"What is the name of Earth’s natural satellite?","answer":"The Moon","options":["The Moon","Europa","Titan"]},{"prompt":"Which planet is largest in our solar system?","answer":"Jupiter","options":["Saturn","Neptune","Jupiter"]}]};
+let index = 0, score = 0;
+const el = id => document.getElementById(id);
+function button(label, activate) {
+  const control = document.createElement('button');
+  control.textContent = label;
+  control.onclick = activate;
+  el('choices').append(control);
+  return control;
+}
+function show() {
+  el('choices').replaceChildren();
+  el('feedback').textContent = '';
+  if (index === app.items.length) {
+    el('position').textContent = 'Finished';
+    el('prompt').textContent = app.kind === 'quiz' ? 'Score: ' + score + ' / ' + index : 'You reviewed ' + index + ' cards.';
+    button('Start again', () => { index = 0; score = 0; show(); }).focus();
+    return;
+  }
+  const item = app.items[index];
+  el('position').textContent = (index + 1) + ' of ' + app.items.length;
+  el('prompt').textContent = item.prompt;
+  function reveal(choice) {
+    el('choices').replaceChildren();
+    if (choice === item.answer) score++;
+    el('feedback').textContent = choice === undefined ? item.answer : choice === item.answer ? 'Correct!' : 'Answer: ' + item.answer;
+    button('Continue', () => { index++; show(); }).focus();
+  }
+  if (app.kind === 'quiz') for (const option of item.options) button(option, () => reveal(option));
+  else button('Reveal answer', () => reveal());
+}
+el('title').textContent = app.title;
+show();
+</script></html>

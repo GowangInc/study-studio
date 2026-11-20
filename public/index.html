@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Study Studio</title>
+  <meta name="theme-color" content="#142d27">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon-192.png">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <link rel="stylesheet" href="/studio.css">
+  <script type="module" src="/studio.js"></script>
+</head>
+<body>
+<header class="masthead">
+  <a class="brand" href="/">Study Studio</a>
+  <div class="header-actions">
+    <button id="install-app" class="secondary" hidden>Install app</button>
+    <button id="signout" class="secondary" hidden>Sign out</button>
+  </div>
+</header>
+<main id="main">
+  <section id="login" class="login" hidden>
+    <h1>Make a study app</h1>
+    <p>Use the access code from your teacher to open your projects.</p>
+    <form id="login-form">
+      <label for="code">Access code</label>
+      <input id="code" name="code" required maxlength="64" type="password" autocomplete="off">
+      <button>Open Study Studio</button>
+    </form>
+  </section>
+  <p id="notice" role="status"></p>
+  <section id="teacher" hidden>
+    <div class="page-heading"><h1>Teacher controls</h1><p id="teacher-status"></p></div>
+    <div class="teacher-grid">
+      <section class="panel">
+        <h2>ASA session</h2>
+        <form id="open-form">
+          <label for="minutes">Session length in minutes</label>
+          <input id="minutes" name="minutes" type="number" value="45" min="1" max="120" required>
+          <button>Open session</button>
+        </form>
+        <button id="close-session" class="secondary">Close session</button>
+      </section>
+      <section class="panel">
+        <h2>Student access</h2>
+        <form id="student-form">
+          <label for="student-id">Student label</label>
+          <input id="student-id" name="id" placeholder="Student 1" required maxlength="10">
+          <button>Create access code</button>
+        </form>
+        <ul id="student-list"></ul>
+      </section>
+      <section class="panel">
+        <h2>Activity</h2>
+        <ol id="activity"></ol>
+      </section>
+    </div>
+  </section>
+  <section id="student" hidden>
+    <div class="page-heading"><h1>Your study workspace</h1><p id="student-status"></p></div>
+    <div class="workspace">
+      <aside class="panel" aria-labelledby="projects-title">
+        <h2 id="projects-title">Projects</h2>
+        <nav id="projects" aria-label="Projects"></nav>
+        <form id="project-form">
+          <label for="project-title">New project name</label>
+          <input id="project-title" name="title" required maxlength="80" placeholder="Spanish revision">
+          <button>Create project</button>
+        </form>
+      </aside>
+      <section id="workbench" class="panel" hidden>
+        <h2 id="project-name"></h2>
+        <label for="app-picker">Study app</label>
+        <select id="app-picker"></select>
+        <div id="conversation" class="conversation" aria-live="polite"></div>
+        <form id="draft-form">
+          <label for="message">What would you like to make or change?</label>
+          <textarea id="message" name="message" rows="3" maxlength="1200" required placeholder="Make a five-question quiz about the solar system."></textarea>
+          <small>Use study material and leave out names and contact details. Your teacher can see activity and flagged requests.</small>
+          <button>Send request</button>
+        </form>
+      </section>
+      <section id="preview" class="panel" hidden>
+        <h2 id="preview-title">Preview</h2>
+        <iframe id="app-frame" title="Study app preview" sandbox="allow-scripts"></iframe>
+        <div class="actions">
+          <button id="save-app" hidden>Save app</button>
+          <button id="discard-app" class="secondary" hidden>Discard draft</button>
+          <a id="download-app" class="button secondary" hidden>Download HTML</a>
+        </div>
+      </section>
+    </div>
+  </section>
+</main>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "name": "study-studio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "start": "node server.mjs",
+    "start:live": "node server.mjs --live",
+    "setup:harness": "node setup-harness.mjs"
+  }
+}
