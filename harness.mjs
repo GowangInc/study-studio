@@ -1,6 +1,6 @@
 import { createServer } from 'node:http'
 import { randomBytes, randomUUID } from 'node:crypto'
-import { mkdtemp, mkdir, rm, readFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, rm } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -9,43 +9,11 @@ import { pipeline } from 'node:stream/promises'
 import { Readable } from 'node:stream'
 import { systemPrompt } from './study.mjs'
 
-const model = 'deepseek-v4.1-flash'
-const endpoint = 'https://opencode.ai/inference/go/anthropic/v1/messages'
+import { createProvider } from './provider.mjs'
+
 const installation = join(homedir(), '.local/share/study-studio/runtime')
 const patch = fileURLToPath(new URL('./study-only.cordis.yml', import.meta.url))
 const resolveSdk = createRequire(join(installation, 'package.json'))
-
-async function goKey() {
-  if (process.env.OPENCODE_GO_KEY_FILE) return (await readFile(process.env.OPENCODE_GO_KEY_FILE, 'utf8')).trim()
-  if (process.env.OPENCODE_GO_API_KEY) return process.env.OPENCODE_GO_API_KEY.trim()
-  const config = process.env.XDG_CONFIG_HOME ?? join(homedir(), '.config')
-  try {
-    return (await readFile(join(config, 'study-studio', 'opencode-go.key'), 'utf8')).trim()
-  } catch (error) {
-    if (error.code !== 'ENOENT') throw error
-  }
-  const file = join(process.env.XDG_DATA_HOME ?? join(homedir(), '.local/share'), 'opencode/auth.json')
-  const credentials = JSON.parse(await readFile(file, 'utf8'))
-  return credentials['opencode-go']?.key
-}
-
-async function requestGo(payload, session, signal) {
-  const key = await goKey()
-  if (!key) throw new Error('Missing OpenCode Go API key')
-  return fetch(endpoint, {
-    method: 'POST',
-    redirect: 'error',
-    signal,
-    headers: {
-      'x-api-key': key,
-      'content-type': 'application/json',
-      'anthropic-version': '2023-06-01',
-      'user-agent': 'study-studio/0.1',
-      'x-opencode-session': session,
-    },
-    body: JSON.stringify(payload),
-  })
-}
 
 function textOnly(content) {
   return typeof content === 'string' || Array.isArray(content) && content.every(
@@ -53,7 +21,7 @@ function textOnly(content) {
   )
 }
 
-export function makeGenerator(forward = requestGo) {
+export function makeGenerator(forward = createProvider()) {
   return async function generate({ message, current, signal, session = randomUUID() }) {
     signal.throwIfAborted()
     const { DeepSeekHarness } = await import(pathToFileURL(resolveSdk.resolve('@deepseek-ai/dsh-sdk-client')).href)
@@ -90,15 +58,12 @@ export function makeGenerator(forward = requestGo) {
           ? payload.messages[0].content : payload.messages[0].content.map(block => block.text).join('')
         if (!text.includes(input)) throw new Error('Unexpected harness context')
         const upstream = await forward({
-          model,
           max_tokens: 2200,
           system: systemPrompt,
           messages: [{ role: 'user', content: input }],
-          thinking: { type: 'disabled' },
-          stream: true,
         }, 'ses_' + session, relaySignal)
         if (!upstream.ok || !upstream.body) {
-          relayFailure = 'OpenCode Go HTTP ' + upstream.status
+          relayFailure = 'Model provider HTTP ' + upstream.status
           await upstream.body?.cancel()
           res.writeHead(upstream.ok ? 502 : upstream.status, { 'Content-Type': 'application/json' })
             .end(JSON.stringify({ type: 'error', error: { type: 'api_error', message: relayFailure } }))

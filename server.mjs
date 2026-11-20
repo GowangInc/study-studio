@@ -6,10 +6,11 @@ import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { StudyError, shortText, proposal, exportApp, demoDraft } from './study.mjs'
 
-const mode = process.env.STUDY_ENGINE ?? (process.argv.includes('--live') ? 'opencode' : 'demo')
-if (!['demo', 'opencode'].includes(mode)) throw new Error('STUDY_ENGINE must be demo or opencode')
+const engine = process.env.STUDY_ENGINE ?? (process.argv.includes('--live') ? 'live' : 'demo')
+const mode = engine === 'opencode' ? 'live' : engine
+if (!['demo', 'live'].includes(mode)) throw new Error('STUDY_ENGINE must be demo or live')
 const host = '127.0.0.1'
-const dataDir = process.env.STUDY_DATA_DIR ?? join(homedir(), '.local/share/study-studio', mode)
+const dataDir = process.env.STUDY_DATA_DIR ?? join(homedir(), '.local/share/study-studio', mode === 'live' ? 'opencode' : mode)
 const port = Number(process.env.STUDY_PORT ?? 8765)
 if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid STUDY_PORT')
 const loopback = new URL('http://' + host + ':' + port)
@@ -25,7 +26,7 @@ const credentials = new Map([[hash(adminCode), { role: 'teacher' }]])
 const sessions = new Map()
 let window = { id: '', end: 0 }
 const active = new Map()
-const live = mode === 'opencode' ? await import('./harness.mjs') : null
+const live = mode === 'live' ? await import('./harness.mjs') : null
 mkdirSync(dataDir, { recursive: true, mode: 0o700 })
 const db = new DatabaseSync(join(dataDir, 'studio.sqlite'))
 db.exec(`
@@ -146,8 +147,8 @@ async function draft(identity, input) {
   } catch (error) {
     if (error instanceof StudyError && error.status === 403) throw error
     if (controller.signal.aborted && run.id !== window.id) throw new StudyError(403, 'This ASA session ended.')
-    const status = error.message?.match(/^OpenCode Go HTTP (\d{3})$/)?.[1]
-    if (status) console.error('OpenCode Go returned HTTP ' + status)
+    const status = error.message?.match(/^Model provider HTTP (\d{3})$/)?.[1]
+    if (status) console.error('Model provider returned HTTP ' + status)
     log(owner, 'Draft failed', 'The builder did not return a usable draft')
     throw new StudyError(502, 'The builder could not finish the draft. Try again with a shorter request.')
   } finally {

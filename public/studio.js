@@ -76,7 +76,9 @@ function renderStudent(status) {
   const app = project.apps.find(candidate => candidate.id === appId)
   el('project-name').textContent = project.title
   el('app-picker').replaceChildren(new Option('New study app', ''),
-    ...project.apps.map(record => new Option(record.title, record.id)))
+    ...project.apps.map(record => new Option(
+      record.title + ' · ' + (record.kind === 'quiz' ? 'Quiz' : 'Flashcards'), record.id,
+    )))
   el('app-picker').value = app?.id ?? ''
   el('app-picker').disabled = sending
   el('draft-form').hidden = !active()
@@ -197,7 +199,11 @@ on('save-app', 'click', async () => {
   const result = await api('save', { id: pending.id })
   pending = null
   appId = result.id
-  if (conversations.has(key)) conversations.set(conversationKey(), conversations.get(key))
+  const savedKey = conversationKey()
+  if (key !== savedKey && conversations.has(key)) {
+    conversations.set(savedKey, conversations.get(key))
+    conversations.delete(key)
+  }
   await refresh()
   el('notice').textContent = 'Study app saved.'
 })
