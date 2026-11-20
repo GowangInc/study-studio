@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#20243a">
   <title>Study Studio</title>
-  <meta name="theme-color" content="#142d27">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="/icon-192.png">
   <link rel="apple-touch-icon" href="/icon-192.png">
@@ -13,83 +13,144 @@
 </head>
 <body>
 <header class="masthead">
-  <a class="brand" href="/">Study Studio</a>
+  <div class="brand-group">
+    <button id="workspace-menu" class="icon-button mobile-only" aria-controls="project-sidebar" aria-expanded="false" aria-label="Projects" hidden><span aria-hidden="true">☰</span></button>
+    <a class="brand" href="/"><span class="brand-mark" aria-hidden="true">✦</span>Study Studio</a>
+    <span id="role-label" class="role-label" hidden></span>
+  </div>
   <div class="header-actions">
-    <button id="install-app" class="secondary" hidden>Install app</button>
-    <button id="signout" class="secondary" hidden>Sign out</button>
+    <button id="install-app" class="quiet" hidden>Install app</button>
+    <button id="signout" class="quiet" hidden>Sign out</button>
   </div>
 </header>
 <main id="main">
   <section id="login" class="login" hidden>
-    <h1>Make a study app</h1>
-    <p>Use the access code from your teacher to open your projects.</p>
-    <form id="login-form">
-      <label for="code">Access code</label>
-      <input id="code" name="code" required maxlength="64" type="password" autocomplete="off">
-      <button>Open Study Studio</button>
-    </form>
+    <div class="login-intro">
+      <span class="hero-mark" aria-hidden="true">✦</span>
+      <h1>Your revision,<br>built by you.</h1>
+      <p>Make a quiz or a set of flashcards. Try it out, change it, and take it with you.</p>
+    </div>
+    <div class="login-access">
+      <h2>Open your workspace</h2>
+      <p>Enter the access code your teacher gives you.</p>
+      <form id="login-form">
+        <label for="code">Access code</label>
+        <input id="code" name="code" required maxlength="64" type="password" autocomplete="off">
+        <button>Open Study Studio <span aria-hidden="true">→</span></button>
+      </form>
+    </div>
   </section>
-  <p id="notice" role="status"></p>
-  <section id="teacher" hidden>
-    <div class="page-heading"><h1>Teacher controls</h1><p id="teacher-status"></p></div>
+  <p id="notice" class="notice" role="status"></p>
+  <section id="teacher" class="teacher" hidden>
+    <div class="teacher-heading">
+      <h1>Teacher controls</h1>
+      <p id="teacher-status" class="session"></p>
+    </div>
     <div class="teacher-grid">
-      <section class="panel">
+      <section class="teacher-section teacher-session">
         <h2>ASA session</h2>
         <form id="open-form">
-          <label for="minutes">Session length in minutes</label>
-          <input id="minutes" name="minutes" type="number" value="45" min="1" max="120" required>
-          <button>Open session</button>
+          <label for="minutes">Length in minutes</label>
+          <div class="form-row">
+            <input id="minutes" name="minutes" type="number" value="45" min="1" max="120" required>
+            <button>Open session</button>
+          </div>
         </form>
         <button id="close-session" class="secondary">Close session</button>
       </section>
-      <section class="panel">
+      <section class="teacher-section teacher-students">
         <h2>Student access</h2>
         <form id="student-form">
           <label for="student-id">Student label</label>
-          <input id="student-id" name="id" placeholder="Student 1" required maxlength="10">
-          <button>Create access code</button>
+          <div class="form-row">
+            <input id="student-id" name="id" placeholder="Student 1" required maxlength="10">
+            <button>Create access code</button>
+          </div>
         </form>
-        <ul id="student-list"></ul>
+        <ul id="student-list" class="activity-list"></ul>
       </section>
-      <section class="panel">
-        <h2>Activity</h2>
-        <ol id="activity"></ol>
+      <section class="teacher-section teacher-activity">
+        <h2>Recent activity</h2>
+        <p id="activity-empty" class="muted">Session activity will appear here.</p>
+        <ol id="activity" class="activity-list"></ol>
       </section>
     </div>
   </section>
-  <section id="student" hidden>
-    <div class="page-heading"><h1>Your study workspace</h1><p id="student-status"></p></div>
-    <div class="workspace">
-      <aside class="panel" aria-labelledby="projects-title">
-        <h2 id="projects-title">Projects</h2>
+  <section id="student" class="student" hidden>
+    <div class="workspace" id="workspace" data-view="chat">
+      <aside class="project-sidebar" id="project-sidebar" aria-labelledby="projects-title">
+        <div class="sidebar-heading"><h2 id="projects-title">Projects</h2></div>
         <nav id="projects" aria-label="Projects"></nav>
         <form id="project-form">
-          <label for="project-title">New project name</label>
-          <input id="project-title" name="title" required maxlength="80" placeholder="Spanish revision">
-          <button>Create project</button>
+          <label for="project-title">New project</label>
+          <input id="project-title" name="title" required maxlength="80" placeholder="e.g. Spanish revision">
+          <button class="sidebar-action"><span aria-hidden="true">＋</span> Create project</button>
         </form>
       </aside>
-      <section id="workbench" class="panel" hidden>
-        <h2 id="project-name"></h2>
-        <label for="app-picker">Study app</label>
-        <select id="app-picker"></select>
-        <div id="conversation" class="conversation" aria-live="polite"></div>
-        <form id="draft-form">
-          <label for="message">What would you like to make or change?</label>
-          <textarea id="message" name="message" rows="3" maxlength="1200" required placeholder="Make a five-question quiz about the solar system."></textarea>
-          <small>Use study material and leave out names and contact details. Your teacher can see activity and flagged requests.</small>
-          <button>Send request</button>
-        </form>
-      </section>
-      <section id="preview" class="panel" hidden>
-        <h2 id="preview-title">Preview</h2>
-        <iframe id="app-frame" title="Study app preview" sandbox="allow-scripts"></iframe>
-        <div class="actions">
-          <button id="save-app" hidden>Save app</button>
-          <button id="discard-app" class="secondary" hidden>Discard draft</button>
-          <a id="download-app" class="button secondary" hidden>Download HTML</a>
+      <div class="workspace-main">
+        <header class="workspace-bar">
+          <div class="workspace-title">
+            <h1 id="project-name">Your workspace</h1>
+            <p id="student-status" class="session"></p>
+          </div>
+          <div class="workspace-tools">
+            <label class="sr-only" for="app-picker">Study app</label>
+            <select id="app-picker" hidden></select>
+            <button id="preview-toggle" class="secondary preview-toggle" aria-controls="preview" aria-expanded="false" hidden>Preview</button>
+            <div id="workspace-tabs" class="workspace-tabs" role="group" aria-label="Workspace view" hidden>
+              <button id="chat-tab" class="quiet" aria-controls="workbench" aria-pressed="true">Chat</button>
+              <button id="preview-tab" class="quiet" aria-controls="preview" aria-pressed="false">Preview</button>
+            </div>
+          </div>
+        </header>
+        <div class="workspace-panes">
+          <section id="no-project" class="empty-state">
+            <span class="hero-mark" aria-hidden="true">✦</span>
+            <h2>Start with a project</h2>
+            <p id="no-project-help">Give your project a name, then build study apps for it.</p>
+            <button id="start-project" class="secondary">Create a project</button>
+          </section>
+          <section id="workbench" class="workbench" aria-label="Chat" hidden>
+            <div class="chat-scroll" id="chat-scroll">
+              <div id="chat-empty" class="empty-state">
+                <span class="hero-mark" aria-hidden="true">✦</span>
+                <h2 id="chat-heading">What are you studying?</h2>
+                <p id="chat-help">Describe what you want to practise. Study Studio can make a quiz or flashcards for you to try.</p>
+                <div class="starter-actions" id="starter-actions">
+                  <button class="secondary starter" data-prompt="Make a quiz about "><span aria-hidden="true">?</span> Make a quiz</button>
+                  <button class="secondary starter" data-prompt="Make flashcards about "><span aria-hidden="true">▤</span> Make flashcards</button>
+                </div>
+              </div>
+              <div id="conversation" class="conversation" role="log" aria-live="polite"></div>
+            </div>
+            <form id="draft-form" class="composer" hidden>
+              <div class="composer-box">
+                <label class="sr-only" for="message">What would you like to make or change?</label>
+                <textarea id="message" name="message" rows="2" maxlength="1200" required placeholder="Ask Study Studio to make or change an app…" aria-describedby="composer-help"></textarea>
+                <div class="composer-actions">
+                  <span id="composer-progress" role="status"></span>
+                  <button class="send-button" type="submit" aria-label="Send request" title="Send request (Ctrl or ⌘ + Enter)"><span aria-hidden="true">↑</span></button>
+                </div>
+              </div>
+              <small id="composer-help">Leave out names and contact details. Your teacher can see activity and flagged requests.</small>
+            </form>
+          </section>
+          <section id="preview" class="preview" aria-label="Study app preview" hidden>
+            <header class="preview-header">
+              <div>
+                <span id="preview-title" class="preview-status"></span>
+                <h2 id="preview-app-name"></h2>
+              </div>
+            </header>
+            <iframe id="app-frame" title="Study app preview" sandbox="allow-scripts"></iframe>
+            <div class="preview-actions">
+              <button id="save-app" hidden>Save app</button>
+              <button id="discard-app" class="secondary" hidden>Discard draft</button>
+              <a id="download-app" class="button secondary" hidden>Download HTML <span aria-hidden="true">↓</span></a>
+            </div>
+          </section>
         </div>
-      </section>
+      </div>
     </div>
   </section>
 </main>

@@ -1,12 +1,12 @@
-:root { color: #1c302a; background: #edf4ef; font: 100% system-ui, sans-serif; }
+:root { color: #24283c; background: #faf9f7; font: 100% "Avenir Next", "Segoe UI", system-ui, sans-serif; }
 * { box-sizing: border-box; }
 body { margin: 0; }
-a { color: #155447; text-underline-offset: .2em; }
-a:focus-visible { outline: 3px solid #aa5c00; outline-offset: 4px; }
-header { background: #142d27; color: #e8fff0; }
+a { color: #4145ad; text-underline-offset: .2em; }
+a:focus-visible { outline: 3px solid #4145ad; outline-offset: 4px; }
+header { background: #20243a; color: #f1efff; }
 nav, main, footer { max-width: 64rem; margin: auto; padding-inline: clamp(1rem, 4vw, 2.5rem); }
 nav { display: flex; justify-content: space-between; align-items: center; gap: 1.25rem; min-height: 4rem; }
-nav a { color: #e8fff0; }
+nav a { color: #f1efff; }
 nav strong { font-size: 1.08rem; white-space: nowrap; }
 .hero { padding-block: clamp(3rem, 8vw, 7rem) 2rem; }
 h1 { font-size: clamp(2.5rem, 9vw, 5.4rem); line-height: .98; letter-spacing: -.075em; margin: 0; }
@@ -14,10 +14,10 @@ h2 { letter-spacing: -.045em; font-size: 1.75rem; margin-top: 0; }
 .hero p { font-size: clamp(1.1rem, 2.3vw, 1.45rem); max-width: 37rem; }
 p, li { line-height: 1.58; }
 .actions { display: flex; gap: .75rem; flex-wrap: wrap; }
-.button { display: inline-block; padding: .8rem 1rem; border-radius: .55rem; background: #184a3e; color: #fff; text-decoration: none; border: 1px solid #184a3e; font-weight: 650; }
-.button.alt { background: transparent; color: #184a3e; }
+.button { display: inline-block; padding: .8rem 1rem; border-radius: .55rem; background: #4145ad; color: #fff; text-decoration: none; border: 1px solid #4145ad; font-weight: 650; }
+.button.alt { background: transparent; color: #4145ad; }
 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-.panel { background: #fff; border: 1px solid #c8dbd0; border-radius: 1rem; padding: clamp(1rem, 4vw, 2rem); }
+.panel { background: #fff; border: 1px solid #dedde6; border-radius: 1rem; padding: clamp(1rem, 4vw, 2rem); }
 ol, ul { padding-left: 1.4rem; }
 li + li { margin-top: .35rem; }
 footer { padding-block: 2rem; }

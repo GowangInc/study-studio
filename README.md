@@ -93,7 +93,8 @@ The screenshots use a demo class and sample study content. Access codes are mask
 
 #### Phone layout
 
-<img src="screenshots/06-phone-workspace.png" width="340" alt="Study Studio rendered at phone width with the project list, editor, and app preview stacked vertically">
+<img src="screenshots/12-phone-chat.png" width="330" alt="Phone chat view with the revision composer and a tab for the preview">
+<img src="screenshots/06-phone-workspace.png" width="330" alt="Phone preview view with the interactive quiz and a download button">
 
 </details>
 
